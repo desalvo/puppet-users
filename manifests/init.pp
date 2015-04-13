@@ -4,20 +4,14 @@
 #
 # === Parameters
 #
-# [*user*]
-#   User name, defaults to the resource name if not present.
+# [*name*]
+#   User name. Value defaults to the resource's title if omitted.
+#
+# [*gid*]
+#   The user's primary group. Can be specified numerically or by name.
 #
 # [*groups*]
 #   Groups to which the user belongs. Primary group should not be listed here.
-#
-# [*uid*]
-#   User ID
-#
-# [*gid*]
-#   Group ID
-#
-# [*group*]
-#   Primary group name.
 #
 # [*homepath*]
 #   Home dir path, defaults to '/home'
@@ -36,7 +30,8 @@
 # === Examples
 #
 #  users { 'foo':
-#    group => 'bar',
+#    gid => 'bar',
+#    groups => [ 'foo', 'baz' ],
 #  }
 #
 # === Authors
@@ -48,25 +43,21 @@
 # Copyright 2014 Alessandro De Salvo
 #
 define users (
-    $user = undef,
-    $groups = undef,
-    $uid = undef,
     $gid = undef,
-    $group = undef,
+    $groups = undef,
     $homepath = '/home',
     $ensure = 'present',
     $authorized_keys = undef,
     $keys = undef,
 ) {
-    if ($user) { $username = $user } else { $username = $title }
+    $username = $name
 
-    if ($username != 'root') {
-        if ($uid) { $user_uid = {uid => $uid} } else { $user_uid = {} }
+    if ($name != 'root') {
+        $user_name = { name => $name }
         if ($gid) { $user_gid = {gid => $gid} } else { $user_gid = {} }
         if ($groups) { $user_groups = {groups => $groups} } else { $user_groups = {} }
-        if ($group) { $user_group = {group => $group} } else { $user_group = {} }
-        $user_data = merge($user_uid,$user_gid,$user_groups,$user_group)
-        $user_hash = { "$username" => $user_data }
+        $user_data = merge($user_name, $user_gid, $user_groups)
+        $user_hash = { "$title" => $user_data }
         $user_defaults = {
             ensure => $ensure,
             managehome => true,
@@ -74,8 +65,8 @@ define users (
             purge_ssh_keys => true
         }
         create_resources(user, $user_hash, $user_defaults)
-        $user_req = User[$username]
         $ssh_dir = "${homepath}/${username}/.ssh"
+        $user_req = User[$name]
     } else {
         $user_req = []
         $ssh_dir = "/${username}/.ssh"
@@ -84,16 +75,16 @@ define users (
     if ($ensure == 'present') {
         file {$ssh_dir:
             ensure  => directory,
-            owner   => $username,
-            group   => $group,
+            owner   => $name,
+            group   => $gid,
             mode    => 700,
             require => $user_req,
         }
 
         if ($keys) {
-            if ($group) { $key_group = $group } else { $key_group = $username }
+            if ($gid) { $key_group = $gid } else { $key_group = $name }
             $keys_defaults = {
-                user   => $username,
+                user   => $name,
                 group  => $key_group,
                 sshdir => "${ssh_dir}",
                 type   => 'ssh-rsa',
@@ -106,7 +97,7 @@ define users (
             $ak_defaults = {
                 type   => 'ssh-rsa',
                 ensure => present,
-                user   => $username,
+                user   => $name,
                 require => File[$ssh_dir],
             }
             create_resources (ssh_authorized_key, $authorized_keys, $ak_defaults)
