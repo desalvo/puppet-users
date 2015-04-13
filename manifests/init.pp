@@ -50,7 +50,14 @@ define users (
     $authorized_keys = undef,
     $keys = undef,
 ) {
-    $username = $name
+    validate_absolute_path($homepath)
+
+    $user_home_path = $name ? {
+        root => "/root",
+        default => "${homepath}/${name}",
+    }
+
+    $user_ssh_path = "${user_home_path}/.ssh"
 
     if ($name != 'root') {
         $user_name = { name => $name }
@@ -61,19 +68,17 @@ define users (
         $user_defaults = {
             ensure => $ensure,
             managehome => true,
-            home => "${homepath}/${username}",
+            home => $user_home_path,
             purge_ssh_keys => true
         }
         create_resources(user, $user_hash, $user_defaults)
-        $ssh_dir = "${homepath}/${username}/.ssh"
         $user_req = User[$name]
     } else {
         $user_req = []
-        $ssh_dir = "/${username}/.ssh"
     }
 
     if ($ensure == 'present') {
-        file {$ssh_dir:
+        file {$user_ssh_path:
             ensure  => directory,
             owner   => $name,
             group   => $gid,
@@ -86,9 +91,9 @@ define users (
             $keys_defaults = {
                 user   => $name,
                 group  => $key_group,
-                sshdir => "${ssh_dir}",
+                sshdir => $user_ssh_path,
                 type   => 'ssh-rsa',
-                require => File[$ssh_dir],
+                require => File[$user_ssh_path],
             }
             create_resources (users::config_ssh_keys, $keys, $keys_defaults)
         }
@@ -98,7 +103,7 @@ define users (
                 type   => 'ssh-rsa',
                 ensure => present,
                 user   => $name,
-                require => File[$ssh_dir],
+                require => File[$user_ssh_path],
             }
             create_resources (ssh_authorized_key, $authorized_keys, $ak_defaults)
         }
