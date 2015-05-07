@@ -5,7 +5,10 @@
 # === Parameters
 #
 # [*name*]
-#   User name. Value defaults to the resource's title if omitted.
+#   (namevar) The user name. Value defaults to the resource's title if omitted.
+#
+# [*uid*]
+#   The user ID; must be specified numerically. If omitted then one will be chosen automatically.
 #
 # [*gid*]
 #   The user's primary group. Can be specified numerically or by name.
@@ -43,6 +46,7 @@
 # Copyright 2014 Alessandro De Salvo
 #
 define users (
+    $uid = undef,
     $gid = undef,
     $groups = undef,
     $homepath = '/home',
@@ -61,9 +65,10 @@ define users (
 
     if ($name != 'root') {
         $user_name = { name => $name }
+        if ($uid) { $user_uid = {uid => $uid} } else { $user_uid = {} }
         if ($gid) { $user_gid = {gid => $gid} } else { $user_gid = {} }
         if ($groups) { $user_groups = {groups => $groups} } else { $user_groups = {} }
-        $user_data = merge($user_name, $user_gid, $user_groups)
+        $user_data = merge($user_name, $user_uid, $user_gid, $user_groups)
         $user_hash = { "$title" => $user_data }
         $user_defaults = {
             ensure => $ensure,
