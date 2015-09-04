@@ -4,20 +4,17 @@
 #
 # === Parameters
 #
-# [*user*]
-#   User name, defaults to the resource name if not present.
+# [*name*]
+#   (namevar) The user name. Value defaults to the resource's title if omitted.
+#
+# [*uid*]
+#   The user ID; must be specified numerically. If omitted then one will be chosen automatically.
+#
+# [*gid*]
+#   The user's primary group. Can be specified numerically or by name.
 #
 # [*groups*]
 #   Groups to which the user belongs. Primary group should not be listed here.
-#
-# [*uid*]
-#   User ID
-#
-# [*gid*]
-#   Group ID
-#
-# [*group*]
-#   Primary group name.
 #
 # [*homepath*]
 #   Home dir path, defaults to '/home'
@@ -36,7 +33,8 @@
 # === Examples
 #
 #  users { 'foo':
-#    group => 'bar',
+#    gid => 'bar',
+#    groups => [ 'foo', 'baz' ],
 #  }
 #
 # === Authors
@@ -48,56 +46,59 @@
 # Copyright 2014 Alessandro De Salvo
 #
 define users (
-    $user = undef,
-    $groups = undef,
     $uid = undef,
     $gid = undef,
-    $group = undef,
+    $groups = undef,
     $homepath = '/home',
     $ensure = 'present',
     $authorized_keys = undef,
     $keys = undef,
 ) {
-    if ($user) { $username = $user } else { $username = $title }
+    validate_absolute_path($homepath)
 
-    if ($username != 'root') {
+    $user_home_path = $name ? {
+        root => "/root",
+        default => "${homepath}/${name}",
+    }
+
+    $user_ssh_path = "${user_home_path}/.ssh"
+
+    if ($name != 'root') {
+        $user_name = { name => $name }
         if ($uid) { $user_uid = {uid => $uid} } else { $user_uid = {} }
         if ($gid) { $user_gid = {gid => $gid} } else { $user_gid = {} }
         if ($groups) { $user_groups = {groups => $groups} } else { $user_groups = {} }
-        if ($group) { $user_group = {group => $group} } else { $user_group = {} }
-        $user_data = merge($user_uid,$user_gid,$user_groups,$user_group)
-        $user_hash = { "$username" => $user_data }
+        $user_data = merge($user_name, $user_uid, $user_gid, $user_groups)
+        $user_hash = { "$title" => $user_data }
         $user_defaults = {
             ensure => $ensure,
             managehome => true,
-            home => "${homepath}/${username}",
+            home => $user_home_path,
             purge_ssh_keys => true
         }
         create_resources(user, $user_hash, $user_defaults)
-        $user_req = User[$username]
-        $ssh_dir = "${homepath}/${username}/.ssh"
+        $user_req = User[$name]
     } else {
         $user_req = []
-        $ssh_dir = "/${username}/.ssh"
     }
 
     if ($ensure == 'present') {
-        file {$ssh_dir:
+        file {$user_ssh_path:
             ensure  => directory,
-            owner   => $username,
-            group   => $group,
+            owner   => $name,
+            group   => $gid,
             mode    => 700,
             require => $user_req,
         }
 
         if ($keys) {
-            if ($group) { $key_group = $group } else { $key_group = $username }
+            if ($gid) { $key_group = $gid } else { $key_group = $name }
             $keys_defaults = {
-                user   => $username,
+                user   => $name,
                 group  => $key_group,
-                sshdir => "${ssh_dir}",
+                sshdir => $user_ssh_path,
                 type   => 'ssh-rsa',
-                require => File[$ssh_dir],
+                require => File[$user_ssh_path],
             }
             create_resources (users::config_ssh_keys, $keys, $keys_defaults)
         }
@@ -106,8 +107,8 @@ define users (
             $ak_defaults = {
                 type   => 'ssh-rsa',
                 ensure => present,
-                user   => $username,
-                require => File[$ssh_dir],
+                user   => $name,
+                require => File[$user_ssh_path],
             }
             create_resources (ssh_authorized_key, $authorized_keys, $ak_defaults)
         }
