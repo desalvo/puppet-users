@@ -18,11 +18,10 @@ Requires stdlib and works with puppet >= 2.7
 
 The following parameters are supported:
 
-* **user**: User name, defaults to the resource name if not present.
+* **name**: (namevar) The user name. Value defaults to the resource's title if omitted.
+* **uid**: The user ID; must be specified numerically. If omitted then one will be chosen automatically.
+* **gid**: The user's primary group. Can be specified numerically or by name.
 * **groups**: Groups to which the user belongs. Primary group should not be listed here.
-* **uid**: User ID.
-* **gid**: Group ID.
-* **group**: Primary group name.
 * **homepath**: Home dir path, defaults to '/home'.
 * **authorized_keys**: Hash of optional authorized keys.
   - Example: { "root-key-1" => { key => '`<public key>`', type => 'ssh-rsa', user => 'root' } }
@@ -52,6 +51,10 @@ Tested on RedHat and derivatives only.
 * https://github.com/desalvo/puppet-users/graphs/contributors
 
 ## Release Notes
+
+**0.2.0**
+
+* Simplified parameter list and removal of unsupported parameters (christopher-hopper)
 
 **0.1.1**
 

@@ -1,6 +1,6 @@
 {
   "name": "desalvo-users",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": "desalvo",
   "summary": "Puppet module to manage users and ssh keys",
   "license": "Apache 2.0",
